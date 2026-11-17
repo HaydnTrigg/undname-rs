@@ -26,7 +26,7 @@ use windows::{
     Win32::System::Diagnostics::Debug::UnDecorateSymbolNameW,
 };
 
-const INPUTS: [&str; 1168] = [
+static INPUTS: [&str; 1168] = [
     // arg qualifiers
     "?foo@@YAXI@Z",
     "?foo@@YAXN@Z",
@@ -1243,7 +1243,7 @@ fn bench_many(c: &mut Criterion) {
         b.iter(|| {
             let mut output = String::default();
             for &input in inputs {
-                _ = undname::demangle_into(input.into(), Flags::empty(), &mut output);
+                _ = undname::demangle_into(input, Flags::empty(), &mut output);
                 hint::black_box(&output);
             }
         });
@@ -1285,7 +1285,7 @@ fn bench_single(c: &mut Criterion) {
 
     group.bench_with_input("undname", input, |b, i| {
         b.iter(|| {
-            let output = undname::demangle(i.into(), Flags::empty()).unwrap();
+            let output = undname::demangle(i, Flags::empty()).unwrap();
             hint::black_box(&output);
         });
     });

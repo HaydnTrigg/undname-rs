@@ -17,31 +17,26 @@ use memchr::memmem;
 use std::string::String;
 
 fn do_test(mangled_name: &str, demangled_name: &str, partial_match: bool, flags: Flags) {
-    let result = crate::demangle(mangled_name.into(), flags);
+    let result = crate::demangle(mangled_name, flags);
     match result {
         Ok(haystack) => {
             let matched = if partial_match {
                 // this is how llvm checks their tests
-                memmem::find(&haystack.as_bytes(), demangled_name.as_bytes()).is_some()
+                memmem::find(haystack.as_bytes(), demangled_name.as_bytes()).is_some()
             } else {
                 haystack == demangled_name
             };
-            if !matched {
-                assert!(
-                    false,
-                    "'{mangled_name}' <-- mangled string\n{flags:?} <-- flags\n'{demangled_name}' <-- expected\n'{haystack}' <-- actual",
-                );
-            }
+            assert!(
+                matched,
+                "'{mangled_name}' <-- mangled string\n{flags:?} <-- flags\n'{demangled_name}' <-- expected\n'{haystack}' <-- actual",
+            );
         }
-        Err(err) => assert!(
-            false,
-            "'{mangled_name}' <-- mangled string\n{err:?} <-- error",
-        ),
+        Err(err) => panic!("'{mangled_name}' <-- mangled string\n{err:?} <-- error"),
     }
 }
 
 fn test(mangled_name: &str, demangled_name: &str) {
-    do_test(mangled_name, demangled_name, true, Flags::default())
+    do_test(mangled_name, demangled_name, true, Flags::default());
 }
 
 #[test]
@@ -50,12 +45,9 @@ fn test_invalid_manglings() {
         let result = crate::demangle(mangled_name, Flags::default());
         match result {
             Err(_) => (),
-            Ok(demangled_name) => {
-                assert!(
-                    false,
-                    "'{mangled_name}' <-- mangled string\n'Err(_)' <-- expected\n'{demangled_name}' <-- actual",
-                );
-            }
+            Ok(demangled_name) => panic!(
+                "'{mangled_name}' <-- mangled string\n'Err(_)' <-- expected\n'{demangled_name}' <-- actual",
+            ),
         }
     };
 

@@ -663,13 +663,7 @@ impl<'alloc, 'string: 'alloc> Demangler<'alloc, 'string> {
             'T' => TagKind::Union,
             'U' => TagKind::Struct,
             'V' => TagKind::Class,
-            'W' => {
-                if self.mangled_name.try_consume_char('4').is_some() {
-                    TagKind::Enum
-                } else {
-                    return Err(Error::InvalidClassType);
-                }
-            }
+            'W' if self.mangled_name.try_consume_char('4').is_some() => TagKind::Enum,
             _ => return Err(Error::InvalidClassType),
         };
 
@@ -855,7 +849,7 @@ impl<'alloc, 'string: 'alloc> Demangler<'alloc, 'string> {
                         _ => {
                             _ = self.backrefs.function_params.try_push(tn);
                         }
-                    };
+                    }
                 }
             }
             Some(self.cache.intern(NodeArrayNode {
@@ -2100,9 +2094,7 @@ impl<'alloc, 'string: 'alloc> Demangler<'alloc, 'string> {
                         Ok((c1 << 4) | c2)
                     }
                     c if c.is_ascii_digit() => {
-                        const LOOKUP: [u8; 10] = [
-                            b',', b'/', b'\\', b':', b'.', b' ', b'\n', b'\t', b'\'', b'-',
-                        ];
+                        const LOOKUP: &[u8; 10] = b",/\\:. \n\t'-";
                         let i = c as u8 - b'0';
                         // SAFETY: the range contains 10 numbers, and there are 10 ascii digits
                         let result = unsafe { LOOKUP.get_unchecked(i as usize) };
@@ -2278,7 +2270,7 @@ impl<'alloc, 'string: 'alloc> Demangler<'alloc, 'string> {
             // then we encoded the entire string. In this case we check for a 1-byte,
             // 2-byte, or 4-byte null terminator.
             let trailing_nulls = string_bytes.iter().rev().take_while(|&&x| x == 0).count();
-            if trailing_nulls >= 4 && num_bytes % 4 == 0 {
+            if trailing_nulls >= 4 && num_bytes.is_multiple_of(4) {
                 Some(4)
             } else if trailing_nulls >= 2 {
                 Some(2)
@@ -2293,7 +2285,7 @@ impl<'alloc, 'string: 'alloc> Demangler<'alloc, 'string> {
             // perfect and is biased towards languages that have ascii alphabets, but this
             // was always going to be best effort since the encoding is lossy.
             let embedded_nulls: usize = string_bytes.iter().map(|&x| usize::from(x == 0)).sum();
-            if embedded_nulls >= 2 * string_bytes.len() / 3 && num_bytes % 4 == 0 {
+            if embedded_nulls >= 2 * string_bytes.len() / 3 && num_bytes.is_multiple_of(4) {
                 Some(4)
             } else if embedded_nulls >= string_bytes.len() / 3 {
                 Some(2)
