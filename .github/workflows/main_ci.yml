@@ -9,41 +9,138 @@ on:
       - 'src/**/*.rs'
       - 'Cargo.lock'
       - 'Cargo.toml'
+      - 'deny.toml'
+      - 'rustfmt.toml'
   pull_request:
     branches: ['main']
   workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
 
 jobs:
-  build:
-    runs-on: ${{ matrix.os }}
+  fmt:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Rust toolchain
+        # We use nightly options in rustfmt.toml
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: rustfmt
+      - name: Cargo fmt
+        run: cargo fmt --all --check
+
+  deny:
+    name: Deny
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-
+        checks:
+          # - advisories
+          - bans licenses sources
+    # Prevent new advisories from failing CI
+    continue-on-error: ${{ matrix.checks == 'advisories' }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v6
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check ${{ matrix.checks }}
 
-      - name: Nightly
-        run: |
-          rustup toolchain install nightly --component clippy
-          rustup override set nightly
-
-      - name: Clippy
+  test:
+    name: Test
+    strategy:
+      matrix:
+        platform: [ubuntu-latest, windows-latest, macos-latest]
+      fail-fast: false
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: clippy, miri
+      - name: Cache Rust workspace
+        uses: Swatinem/rust-cache@v2
+      - name: Cargo clippy
         run: cargo clippy -- -Dwarnings
-
-      - name: Build
-        run: cargo build
-
-      - name: Miri Test
-        if: ${{ matrix.os == 'ubuntu-latest' }}
+      - name: Cargo clippy (no_std)
+        run: cargo clippy --no-default-features -- -Dwarnings
+      - name: Cargo miri test
+        if: matrix.platform == 'ubuntu-latest'
         run: |
-          rustup component add miri
           cargo miri setup
           cargo miri test
-
-      - name: Test
-        if: ${{ matrix.os != 'ubuntu-latest' }}
+      - name: Cargo test
+        if: matrix.platform != 'ubuntu-latest'
         run: cargo test
+
+  build:
+    name: Build ${{ matrix.name }}
+    strategy:
+      matrix:
+        include:
+          - platform: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            name: linux-x86_64
+            std: true
+          - platform: ubuntu-latest
+            target: i686-unknown-linux-musl
+            name: linux-i686
+            std: true
+          - platform: ubuntu-latest
+            target: aarch64-unknown-linux-musl
+            name: linux-aarch64
+            std: true
+          - platform: windows-latest
+            target: i686-pc-windows-msvc
+            name: windows-x86
+            std: true
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+            name: windows-x86_64
+            std: true
+          - platform: windows-latest
+            target: aarch64-pc-windows-msvc
+            name: windows-arm64
+            std: true
+          - platform: macos-latest
+            target: x86_64-apple-darwin
+            name: macos-x86_64
+            std: true
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+            name: macos-arm64
+            std: true
+          # bare-metal targets without std, to verify the crate stays no_std
+          - platform: ubuntu-latest
+            target: x86_64-unknown-none
+            name: none-x86_64
+            std: false
+          - platform: ubuntu-latest
+            target: thumbv7em-none-eabihf
+            name: none-thumbv7em
+            std: false
+      fail-fast: false
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - name: Cache Rust workspace
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+      - name: Cargo build
+        if: matrix.std
+        run: cargo build --release --target ${{ matrix.target }}
+      - name: Cargo build (no_std)
+        run: cargo build --release --target ${{ matrix.target }} --no-default-features
