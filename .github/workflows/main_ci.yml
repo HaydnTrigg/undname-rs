@@ -5,6 +5,7 @@ on:
     branches: ['main']
     paths:
       - '.github/workflows/main_ci.yml'
+      - 'benches/**/*.rs'
       - 'examples/**/*.rs'
       - 'src/**/*.rs'
       - 'Cargo.lock'
@@ -79,6 +80,19 @@ jobs:
       - name: Cargo test
         if: matrix.platform != 'ubuntu-latest'
         run: cargo test
+
+  bench:
+    name: Bench
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@nightly
+      - name: Cache Rust workspace
+        uses: Swatinem/rust-cache@v2
+      - name: Cargo bench
+        run: cargo bench
 
   build:
     name: Build ${{ matrix.name }}
