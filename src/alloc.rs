@@ -16,7 +16,7 @@ use bumpalo::{
     collections::Vec as BumpVec,
     Bump,
 };
-use std::mem;
+use core::mem;
 
 #[must_use]
 pub(crate) fn allocate<T>(allocator: &Bump, val: T) -> &mut T {

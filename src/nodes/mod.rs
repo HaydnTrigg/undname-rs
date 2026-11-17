@@ -53,6 +53,7 @@ use crate::{
     Result,
     Writer,
 };
+use core::mem;
 pub(crate) use derived::{
     ArrayTypeNode,
     ConversionOperatorIdentifierNode,
@@ -110,7 +111,6 @@ pub(crate) use intermediate::{
     SymbolNode,
     TypeNode,
 };
-use std::mem;
 
 fn output_space_if_necessary(ob: &mut dyn Writer) -> Result<()> {
     if let Some(c) = ob.last_char() {

@@ -60,8 +60,8 @@ use bumpalo::{
     collections::Vec as BumpVec,
     Bump,
 };
+use core::marker::PhantomData;
 use nonmax::NonMaxUsize;
-use std::marker::PhantomData;
 
 pub(crate) enum NodeStorage<'alloc> {
     PrimitiveType(&'alloc mut PrimitiveTypeNode),

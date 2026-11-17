@@ -93,33 +93,33 @@ use crate::{
 };
 use arrayvec::ArrayVec;
 use bumpalo::Bump;
-use smallvec::SmallVec;
-use std::{
-    io,
-    io::Write as _,
+use core::{
+    fmt::Write as _,
     mem,
 };
+use rust_alloc::string::String;
+use smallvec::SmallVec;
 
 mod writing {
-    use crate::{
-        Error,
-        Writer,
-    };
+    use crate::Writer;
     use bumpalo::collections::Vec as BumpVec;
-    use std::{
-        io,
+    use core::{
+        fmt,
         str::Utf8Error,
     };
+    use rust_alloc::vec::Vec;
 
-    pub(super) trait Buffer: io::Write {
+    pub(super) trait Buffer {
         fn as_bytes(&self) -> &[u8];
+
+        fn push_bytes(&mut self, bytes: &[u8]);
 
         fn len_bytes(&self) -> usize {
             self.as_bytes().len()
         }
 
         fn last_char(&self) -> Option<char> {
-            match std::str::from_utf8(self.as_bytes()) {
+            match core::str::from_utf8(self.as_bytes()) {
                 Ok(string) => string.chars().next_back(),
                 Err(_) => None,
             }
@@ -130,11 +130,19 @@ mod writing {
         fn as_bytes(&self) -> &[u8] {
             self.as_slice()
         }
+
+        fn push_bytes(&mut self, bytes: &[u8]) {
+            self.extend_from_slice(bytes);
+        }
     }
 
     impl Buffer for BumpVec<'_, u8> {
         fn as_bytes(&self) -> &[u8] {
             self.as_slice()
+        }
+
+        fn push_bytes(&mut self, bytes: &[u8]) {
+            self.extend_from_slice(bytes);
         }
     }
 
@@ -152,22 +160,17 @@ mod writing {
         }
     }
 
-    impl<B: Buffer> io::Write for BufWriter<B> {
-        fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-            let final_len = buf.len().checked_add(self.buffer.len_bytes());
+    impl<B: Buffer> fmt::Write for BufWriter<B> {
+        fn write_str(&mut self, s: &str) -> fmt::Result {
+            let final_len = s.len().checked_add(self.buffer.len_bytes());
             if matches!(final_len, Some(x) if x < (1 << 20)) {
-                self.buffer.write(buf)
+                self.buffer.push_bytes(s.as_bytes());
+                Ok(())
             } else {
                 // a demangled string that's over a mb in length? bail
-                Err(io::Error::new(
-                    io::ErrorKind::OutOfMemory,
-                    Error::MaliciousInput,
-                ))
+                // this is reported to the caller as `Error::MaliciousInput`
+                Err(fmt::Error)
             }
-        }
-
-        fn flush(&mut self) -> io::Result<()> {
-            self.buffer.flush()
         }
     }
 
@@ -176,8 +179,8 @@ mod writing {
 
         fn try_from(
             value: BufWriter<BumpVec<'bump, u8>>,
-        ) -> std::result::Result<Self, Self::Error> {
-            std::str::from_utf8(value.buffer.into_bump_slice())
+        ) -> core::result::Result<Self, Self::Error> {
+            core::str::from_utf8(value.buffer.into_bump_slice())
         }
     }
 
@@ -302,7 +305,7 @@ impl<'alloc, 'string: 'alloc> Demangler<'alloc, 'string> {
         } else {
             self.mangled_name
                 .try_consume_char('?')
-                .ok_or(Error::Io(io::ErrorKind::UnexpectedEof.into()))?;
+                .ok_or(Error::InvalidMangledName)?;
             // ?$ is a template instantiation, but all other names that start with ? are
             // operators / special names.
             if let Some(si) = self.demangle_special_intrinsic()? {

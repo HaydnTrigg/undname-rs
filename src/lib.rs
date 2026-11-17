@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #![doc = include_str!("../README.md")]
+#![no_std]
 #![warn(clippy::pedantic)]
 #![deny(clippy::undocumented_unsafe_blocks)]
 #![allow(
@@ -21,6 +22,12 @@
     clippy::struct_field_names,
     clippy::too_many_lines
 )]
+
+// the crate-local `alloc` module shadows the `alloc` crate, so the crate is imported under a different name
+extern crate alloc as rust_alloc;
+
+#[cfg(any(test, feature = "std"))]
+extern crate std;
 
 mod alloc;
 mod cache;
@@ -34,15 +41,18 @@ mod tests;
 
 use crate::demangler::Demangler;
 use bumpalo::Bump;
-use std::{
-    io,
+use core::{
+    fmt,
     str::Utf8Error,
-    string::FromUtf8Error,
+};
+use rust_alloc::string::{
+    FromUtf8Error,
+    String,
 };
 
 type OutputFlags = Flags;
 
-trait Writer: io::Write {
+trait Writer: fmt::Write {
     fn last_char(&self) -> Option<char>;
     fn len_bytes(&self) -> usize;
 }
@@ -179,14 +189,27 @@ pub enum Error {
     #[error("failed to demangle vcall thunk node")]
     InvalidVcallThunkNode,
 
+    #[error("mangled name is not a valid microsoft symbol")]
+    InvalidMangledName,
+
+    /// No longer produced by the demangler; kept for backwards compatibility.
+    #[cfg(feature = "std")]
     #[error(transparent)]
-    Io(#[from] io::Error),
+    Io(#[from] std::io::Error),
 
     #[error("string demangled to an invalid utf-8 sequence")]
     Utf8Error,
 
     #[error("input string was likely malicious and would have triggered an out of memory panic")]
     MaliciousInput,
+}
+
+/// The only writer the demangler formats into is the internal output buffer, which only fails when the
+/// output grows suspiciously large.
+impl From<fmt::Error> for Error {
+    fn from(_: fmt::Error) -> Self {
+        Self::MaliciousInput
+    }
 }
 
 impl From<Utf8Error> for Error {
@@ -201,7 +224,7 @@ impl From<FromUtf8Error> for Error {
     }
 }
 
-pub type Result<T> = std::result::Result<T, Error>;
+pub type Result<T> = core::result::Result<T, Error>;
 
 bitflags::bitflags! {
     /// `Flags` control how types are printed during demangling. See each flag for more info on what exactly they do.

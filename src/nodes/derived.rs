@@ -49,7 +49,7 @@ use crate::{
 };
 use arrayvec::ArrayVec;
 use bumpalo::Bump;
-use std::{
+use core::{
     mem::ManuallyDrop,
     ops::{
         Deref,

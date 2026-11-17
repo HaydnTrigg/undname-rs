@@ -13,7 +13,7 @@
 // limitations under the License.
 
 use crate::extensions::CharExt as _;
-use std::slice::SliceIndex;
+use core::slice::SliceIndex;
 
 #[derive(Clone, Copy)]
 pub(crate) struct MangledString<'string> {

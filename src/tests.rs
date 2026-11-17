@@ -14,6 +14,7 @@
 
 use crate::Flags;
 use memchr::memmem;
+use std::string::String;
 
 fn do_test(mangled_name: &str, demangled_name: &str, partial_match: bool, flags: Flags) {
     let result = crate::demangle(mangled_name.into(), flags);

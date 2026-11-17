@@ -22,10 +22,14 @@ version = "2.1.2"
 [dependencies]
 arrayvec = {version = "0.7.6", default-features = false}
 bitflags = {version = "2.6.0", default-features = false}
-bumpalo = {version = "3.16.0", features = ["collections", "std"], default-features = false}
+bumpalo = {version = "3.16.0", features = ["collections"], default-features = false}
 nonmax = {version = "0.5.5", default-features = false}
 smallvec = {version = "1.13.2", default-features = false}
-thiserror = {version = "1.0.63", default-features = false}
+thiserror = {version = "2.0.12", default-features = false}
+
+[features]
+default = ["std"]
+std = ["bumpalo/std", "thiserror/std"]
 
 [dev-dependencies]
 clap = {version = "4.5.16", features = ["derive"]}
