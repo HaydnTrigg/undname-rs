@@ -211,7 +211,7 @@ impl<'string> MangledString<'string> {
             '$' | 'A' => return Some(false),
             // These 4 values indicate some kind of pointer, but we still don't know
             // what.
-            'P' | 'Q' | 'R' | 'S' => (),
+            'P'..='S' => (),
             _ => return None,
         }
 
@@ -237,8 +237,8 @@ impl<'string> MangledString<'string> {
 
         // The next value should be either ABCD (non-member) or QRST (member).
         match self.first_char() {
-            Some('A' | 'B' | 'C' | 'D') => Some(false),
-            Some('Q' | 'R' | 'S' | 'T') => Some(true),
+            Some('A'..='D') => Some(false),
+            Some('Q'..='T') => Some(true),
             _ => None,
         }
     }
@@ -262,6 +262,6 @@ impl<'string> MangledString<'string> {
         // U -> struct
         // V -> class
         // W -> enum
-        matches!(self.first_char(), Some('T' | 'U' | 'V' | 'W'))
+        matches!(self.first_char(), Some('T'..='W'))
     }
 }

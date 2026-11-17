@@ -326,7 +326,7 @@ impl<'alloc, 'string: 'alloc> Demangler<'alloc, 'string> {
             .ok_or(Error::InvalidEncodedSymbol)?;
 
         // Read a variable.
-        if matches!(c, '0' | '1' | '2' | '3' | '4') {
+        if matches!(c, '0'..='4') {
             let sc = self.demangle_variable_storage_class()?;
             let result = self.demangle_variable_encoding(sc)?;
             return Ok(result.into());
